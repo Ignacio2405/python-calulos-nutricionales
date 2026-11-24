@@ -1,56 +1,104 @@
-"""Configuración del servicio desde variables de entorno."""
-
-import logging
-import logging.config
 import os
 from pathlib import Path
-
+import dj_database_url
 from dotenv import load_dotenv
 
+load_dotenv()
+
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR / ".env")
 
-DEBUG = os.getenv("DEBUG", "False") == "True"
-API_TOKEN = os.getenv("API_TOKEN", "").strip()
+# Seguridad y entorno
+SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-cambiar-en-produccion")
 
-try:
-    PORT = int(os.getenv("PORT", "8000"))
-except ValueError as exc:
-    raise ValueError("PORT debe ser un número entero.") from exc
+DEBUG = os.environ.get("DEBUG", "False").lower() in ("true", "1", "yes")
 
-if not 1 <= PORT <= 65535:
-    raise ValueError("PORT debe estar entre 1 y 65535.")
+ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
+render_hostname = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
+if render_hostname:
+    ALLOWED_HOSTS.append(render_hostname)
 
-LOG_LEVEL_NAME = os.getenv("LOG_LEVEL", "INFO").upper()
-LOG_LEVEL = logging.getLevelNamesMapping().get(LOG_LEVEL_NAME)
-if not isinstance(LOG_LEVEL, int):
-    raise ValueError("LOG_LEVEL debe ser un nivel de logging válido.")
+extra_hosts = os.environ.get("ALLOWED_HOSTS", "")
+if extra_hosts:
+    ALLOWED_HOSTS.extend([h.strip() for h in extra_hosts.split(",") if h.strip()])
 
-if not DEBUG and not API_TOKEN:
-    raise RuntimeError("API_TOKEN es obligatorio cuando DEBUG no está activo.")
+# Aplicaciones
+INSTALLED_APPS = [
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    # Terceros
+    "rest_framework",
+    # Apps del proyecto
+    "nutricion",
+]
 
-logging.config.dictConfig(
+# Middleware (WhiteNoise justo después de SecurityMiddleware)
+MIDDLEWARE = [
+    "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+]
+
+ROOT_URLCONF = "config.urls"
+
+TEMPLATES = [
     {
-        "version": 1,
-        "disable_existing_loggers": False,
-        "formatters": {
-            "simple": {
-                "format": "[{asctime}] {levelname} {name}: {message}",
-                "style": "{",
-            }
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+            ],
         },
-        "handlers": {
-            "console": {
-                "class": "logging.StreamHandler",
-                "stream": "ext://sys.stdout",
-                "formatter": "simple",
-            }
-        },
-        "root": {"handlers": ["console"], "level": LOG_LEVEL},
-    }
-)
+    },
+]
 
-if DEBUG and not API_TOKEN:
-    logging.getLogger(__name__).warning(
-        "La autenticación X-API-Key está desactivada porque DEBUG está activo."
+WSGI_APPLICATION = "config.wsgi.application"
+
+# Base de datos: Postgres en Render si hay DATABASE_URL, SQLite en local
+DATABASES = {
+    "default": dj_database_url.config(
+        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+        conn_max_age=600,
+        ssl_require=not DEBUG and bool(os.environ.get("DATABASE_URL")),
     )
+}
+
+# Validación de contraseñas
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
+
+# Internacionalización
+LANGUAGE_CODE = "es-ar"
+TIME_ZONE = "America/Argentina/Buenos_Aires"
+USE_I18N = True
+USE_TZ = True
+
+# Archivos estáticos
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
+
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
