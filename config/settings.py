@@ -12,6 +12,8 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-cambiar-en-produccion
 
 DEBUG = os.environ.get("DEBUG", "False").lower() in ("true", "1", "yes")
 
+API_TOKEN = os.environ.get("API_TOKEN", "")
+
 ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 render_hostname = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
 if render_hostname:
@@ -30,7 +32,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     # Terceros
-    "rest_framework",
+    # "rest_framework",  # Descomentar solo si agregás djangorestframework a requirements.txt
     # Apps del proyecto
     "nutricion",
 ]
